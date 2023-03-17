@@ -6,7 +6,7 @@
 if BOARD_ADV360_LEFT
 
 	config ZMK_KEYBOARD_NAME
-	default "Adv360 Pro"
+	default "Adv360 Pro v2"
 
 endif # BOARD_ADV360_LEFT
 
