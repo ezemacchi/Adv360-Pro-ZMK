@@ -1,0 +1,110 @@
+# ============================================================================
+# hosts.toml - FUENTE DE VERDAD del switch coordinado teclado + mouse.
+#
+# Todo lo demas lee de aca. Si cambias un numero, cambialo SOLO aca.
+#
+# Lo unico que NO puede leer este archivo es el keymap de ZMK, porque se
+# compila a devicetree en el firmware. Por eso existe:
+#
+#     mxswitch.py --verify-keymap
+#
+# que parsea config/macros.dtsi y falla si las macros no coinciden con esto.
+# Corre solo al iniciar sesion (hostsync-verify.service).
+# ============================================================================
+
+[mouse]
+# Identificacion del dispositivo. NUNCA por path (/dev/hidrawN cambia entre
+# reboots y al pasar de Bolt a BT directo).
+#
+# Tampoco por MAC: el MX Master 3S usa una direccion BLE DISTINTA POR SLOT.
+# Verificado el 2026-09-15: al mover de slot 3 a slot 2 la direccion paso de
+# dd:47:18:39:0d:71 a dd:47:18:39:0d:74. Matchear por MAC se rompe justo
+# cuando el mouse hace lo unico que nos importa.
+vendor_id  = 0x046D
+product_id = 0xB034          # MX Master 3S (BLE directo y Bolt usan el mismo)
+name_hint  = "MX Master 3S"  # desempate si hubiera dos mouses iguales
+
+[timing]
+# Espera del listener antes de mandar el HID++, para no pisar al teclado.
+pre_switch_delay_ms = 0
+
+# Cuanto esperamos a que el mouse se desconecte = confirmacion de exito.
+# Si sigue conectado pasado esto, la orden se perdio.
+verify_timeout_ms = 2500
+
+# Reintentos si la orden se perdio (mouse en suspension profunda).
+retries = 2
+retry_delay_ms = 400
+
+# Ventana de deduplicacion. El keymap manda la tecla testigo DOS VECES a
+# proposito (el ADV360 duerme a los 30s y el primer report al despertar se
+# puede perder). Dos pulsaciones del mismo testigo dentro de esta ventana
+# cuentan como una sola.
+#
+# VERIFICADO EN HARDWARE el 2026-09-15: con 600ms, cada pulsacion de la macro
+# produce una sola accion y el segundo tap se deduplica ~30ms despues. Tres
+# pulsaciones seguidas dieron tres acciones y tres deduplicaciones, que es lo
+# correcto. No lo subas sin medir: una ventana mas ancha empezaria a comerse
+# pulsaciones deliberadas al mismo destino.
+dedup_window_ms = 600
+
+[notify]
+enabled = true
+timeout_ms = 2000
+
+# ============================================================================
+# EL MAPA. Perfil BT del teclado <-> slot del mouse <-> tecla testigo.
+#
+# Los dos son 0-BASED, como los espera el hardware:
+#   bt_profile -> &bt BT_SEL <n>   en el keymap
+#   mouse_slot -> setCurrentHost   de HID++ 0x1814
+#
+# Estado verificado el 2026-09-15 leyendo el mouse (0x1814 idx 0x0a, 3 slots).
+# ============================================================================
+
+[[hosts]]
+id         = 1
+name       = "windows"
+label      = "Windows"
+bt_profile = 0                      # &bt BT_SEL 0
+mouse_slot = 0                      # slot 1 en el boton Easy-Switch
+witness    = "f13"
+switchable = true
+# Maquina fisica separada. Nombre en el mouse: "WIN-2MQ42904Q9"
+# Adaptador BT: 58:6d:67:a8:23:01
+
+[[hosts]]
+id         = 2
+name       = "arch"
+label      = "Arch (esta maquina)"
+bt_profile = 1                      # &bt BT_SEL 1
+mouse_slot = 1                      # slot 2
+witness    = "f14"
+switchable = true
+this_host  = true                   # el host donde corre ESTE listener
+# Nombre en el mouse: "cachyos-x8664" / adaptador 08:5b:d6:34:dc:5c
+
+[[hosts]]
+id         = 3
+name       = "windows-dualboot"
+label      = "Windows (dual boot)"
+bt_profile = 2                      # &bt BT_SEL 2
+mouse_slot = 2                      # slot 3
+witness    = "f15"
+
+# NO CONMUTABLE, a proposito.
+#
+# Es el MISMO EQUIPO FISICO que el host 2 (arch): mismo adaptador Bluetooth,
+# 08:5b:d6:34:dc:5c. Dual boot, nunca corren los dos a la vez.
+#
+# Saltar aca desde arch mandaria mouse y teclado a un sistema apagado y te
+# dejaria sin perifericos, sin vuelta atras por software: el ADV360 no acepta
+# ordenes del host (es la premisa de todo este diseño). Se sale a mano con el
+# boton Easy-Switch del mouse y los botones de perfil del teclado.
+#
+# Con esto en false, el listener avisa y no hace nada.
+switchable = false
+same_machine_as = "arch"
+
+# Pendiente: al proximo boot de Windows dual boot hay que parear el mouse en
+# el slot 3 DE CERO. El pareo viejo ("DESK") se piso al mover arch al slot 2.

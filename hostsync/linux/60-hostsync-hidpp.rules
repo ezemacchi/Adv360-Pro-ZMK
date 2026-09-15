@@ -1,0 +1,21 @@
+# hostsync: acceso a los hidraw de Logitech para el usuario de la sesion activa.
+#
+# Sin esto, /dev/hidrawN es root:root 0600 y mxswitch.py sale con codigo 4.
+#
+# Se matchea por el nombre del device HID padre, con el formato BUS:VID:PID.
+# Cubre los dos transportes a proposito:
+#   0005 = Bluetooth (BLE directo, que es como esta hoy)
+#   0003 = USB       (receptor Bolt, por si lo enchufas mas adelante)
+#
+# TAG+="uaccess" se lo da al usuario logueado en la sesion activa via
+# systemd-logind, en vez de a un grupo fijo. Es lo correcto en un equipo
+# de escritorio y no requiere agregarte a ningun grupo.
+#
+# EL NUMERO DEL ARCHIVO IMPORTA. El tag uaccess lo procesa
+# /usr/lib/udev/rules.d/70-uaccess.rules, que corre en el orden 70. Si este
+# archivo se llamara 99-, etiquetaria el dispositivo DESPUES de que el
+# procesador del tag ya paso: el tag queda puesto y nadie lo mira, y el hidraw
+# se queda root:root 0600 sin ningun error visible. Tiene que ser < 70.
+
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", KERNELS=="0005:046D:*", TAG+="uaccess"
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", KERNELS=="0003:046D:*", TAG+="uaccess"

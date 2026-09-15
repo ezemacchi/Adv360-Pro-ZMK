@@ -1,0 +1,29 @@
+[Unit]
+# El mapa perfil<->slot vive en dos lugares y no hay forma de que sea uno solo:
+# ZMK compila a devicetree dentro del firmware y no puede leer hosts.toml.
+#
+# Esto los compara al iniciar sesion. Si se separaron, te llega una notificacion
+# en vez de que lo descubras a mano un martes.
+#
+# La ruta de abajo dice @HOSTSYNC_DIR@ a proposito: es una PLANTILLA.
+# install.sh la reemplaza por la ruta real de tu clon cuando lo corres con
+# --user-units, o la podes reemplazar a mano al copiar el archivo:
+#
+#   mkdir -p ~/.config/systemd/user
+#   sed "s|@HOSTSYNC_DIR@|$PWD|" linux/hostsync-verify.service \
+#       > ~/.config/systemd/user/hostsync-verify.service
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now hostsync-verify.service
+Description=hostsync: verifica que el keymap y hosts.toml sigan alineados
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 @HOSTSYNC_DIR@/mxswitch.py --verify-keymap
+# Un desalineamiento no debe dejar el servicio en failed y llenarte el journal:
+# ya notifica por su cuenta.
+SuccessExitStatus=0 9
+
+[Install]
+WantedBy=graphical-session.target

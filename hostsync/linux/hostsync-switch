@@ -1,0 +1,65 @@
+#!/bin/sh
+# Wrapper que invoca keyd. Existe por dos razones:
+#
+# 1. keyd corre como root y con un entorno minimo. notify-send necesita saber
+#    a que sesion de usuario mandar la notificacion, asi que se la pasamos.
+# 2. Mantiene el keyd.conf legible: una linea por tecla.
+#
+# Uso: hostsync-switch f13
+#
+# La ruta a hostsync/ se resuelve en este orden:
+#   1. $HOSTSYNC_DIR, si esta en el entorno.
+#   2. @HOSTSYNC_DIR@, que install.sh reemplaza por la ruta real al instalar.
+#   3. El directorio de este script, si sigue adentro del repo (uso directo,
+#      sin instalar).
+#   4. Rutas habituales de clones, buscadas en los homes existentes.
+set -eu
+
+self_dir() {
+    d="$(dirname "$0")"
+    (cd "$d" 2>/dev/null && pwd) || echo "$d"
+}
+
+find_dir() {
+    [ -n "${HOSTSYNC_DIR:-}" ] && { echo "$HOSTSYNC_DIR"; return; }
+
+    # install.sh reescribe esta linea con la ruta real del repo.
+    installed="@HOSTSYNC_DIR@"
+    case "$installed" in
+        @*@) : ;;                       # sin sustituir: seguimos buscando
+        *) [ -f "$installed/mxswitch.py" ] && { echo "$installed"; return; } ;;
+    esac
+
+    here="$(self_dir)"
+    for cand in "$here/.." "$here"; do
+        [ -f "$cand/mxswitch.py" ] && { (cd "$cand" && pwd); return; }
+    done
+
+    for home in /home/* /root; do
+        for cand in "$home"/repos/*/hostsync "$home"/*/hostsync "$home"/hostsync; do
+            [ -f "$cand/mxswitch.py" ] && { (cd "$cand" && pwd); return; }
+        done
+    done
+    return 1
+}
+
+HOSTSYNC_DIR="$(find_dir)" || {
+    echo "hostsync-switch: no encuentro mxswitch.py. Exporta HOSTSYNC_DIR o" \
+         "reinstala con 'sudo bash linux/install.sh'." >&2
+    exit 2
+}
+
+# Usuario de la sesion grafica activa, para que la notificacion llegue.
+if [ "$(id -u)" -eq 0 ]; then
+    uid="$(loginctl list-sessions --no-legend 2>/dev/null \
+           | awk '$NF=="active" || $0 ~ /seat0/ {print $2; exit}')"
+    [ -n "${uid:-}" ] || uid=1000
+    HOSTSYNC_UID="$uid"
+    # Sin fallback a un usuario cableado: si no se puede resolver, no
+    # notificamos, pero el switch se hace igual.
+    HOSTSYNC_USER="$(id -nu "$uid" 2>/dev/null || true)"
+    export HOSTSYNC_UID
+    [ -n "$HOSTSYNC_USER" ] && export HOSTSYNC_USER
+fi
+
+exec python3 "$HOSTSYNC_DIR/mxswitch.py" --witness "$1"
