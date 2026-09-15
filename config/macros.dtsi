@@ -222,3 +222,77 @@
     bindings = <&mkp MB1 &mkp MB1>;
     display-name = "Double Click";
   };
+  // ==========================================================================
+  // hostsync - switch coordinado de teclado + mouse.
+  //
+  // Orden OBLIGATORIO dentro de cada macro:
+  //   1. tecla testigo -> se manda al host ACTUAL, que todavia nos escucha
+  //   2. espera
+  //   3. salto de perfil BT -> recien aca el teclado se va
+  //
+  // Si se invierte, el testigo se manda al host destino, que no tiene ni idea
+  // de que paso, y el mouse se queda donde estaba.
+  //
+  // La tecla codifica el DESTINO, no el origen: F13 -> host 1, F14 -> host 2,
+  // F15 -> host 3.
+  //
+  // Va DOS VECES a proposito: el Adv360 duerme a los 30s y el primer report
+  // despues de despertar se puede perder. El listener deduplica por ventana
+  // temporal (dedup_window_ms en hosts.toml), asi que el segundo tap es
+  // gratis si el primero llego.
+  //
+  // El mapa perfil<->slot se define en hostsync/hosts.toml. Estos numeros son
+  // una COPIA que ZMK necesita compilada (devicetree no puede leer un TOML).
+  // 'mxswitch.py --verify-keymap' compara los dos y avisa si se separaron.
+  // Si cambias un BT_SEL aca, cambialo tambien alla.
+  //
+  // wait-ms = 120 es el punto de partida que hay que CALIBRAR: es el margen
+  // entre que el host recibe el testigo y el teclado se desconecta. Si el
+  // mouse no llega a moverse, subilo de a 40.
+  // ==========================================================================
+
+  hostsync_windows: hostsync_windows {
+    compatible = "zmk,behavior-macro";
+    #binding-cells = <0>;
+    display-name = "Host 1 Windows";
+    wait-ms = <40>;
+    tap-ms = <40>;
+    bindings
+      = <&macro_tap &kp F13>          // testigo al host actual
+      , <&macro_wait_time 40>
+      , <&macro_tap &kp F13>          // repeticion anti-sleep
+      , <&macro_wait_time 120>        // CALIBRAR
+      , <&macro_tap &bt BT_SEL 0>     // hosts.toml: windows.bt_profile = 0
+      ;
+  };
+
+  hostsync_arch: hostsync_arch {
+    compatible = "zmk,behavior-macro";
+    #binding-cells = <0>;
+    display-name = "Host 2 Arch";
+    wait-ms = <40>;
+    tap-ms = <40>;
+    bindings
+      = <&macro_tap &kp F14>
+      , <&macro_wait_time 40>
+      , <&macro_tap &kp F14>
+      , <&macro_wait_time 120>        // CALIBRAR
+      , <&macro_tap &bt BT_SEL 1>     // hosts.toml: arch.bt_profile = 1
+      ;
+  };
+
+  // DEFINIDA PERO SIN BINDEAR, a proposito. Ver la nota en el keymap.
+  hostsync_windows_dualboot: hostsync_windows_dualboot {
+    compatible = "zmk,behavior-macro";
+    #binding-cells = <0>;
+    display-name = "Host 3 Win dualboot";
+    wait-ms = <40>;
+    tap-ms = <40>;
+    bindings
+      = <&macro_tap &kp F15>
+      , <&macro_wait_time 40>
+      , <&macro_tap &kp F15>
+      , <&macro_wait_time 120>        // CALIBRAR
+      , <&macro_tap &bt BT_SEL 2>     // hosts.toml: windows-dualboot.bt_profile = 2
+      ;
+  };
