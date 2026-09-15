@@ -55,6 +55,18 @@ dedup_window_ms = 600
 
 [notify]
 enabled = true
+
+# Avisar cuando el switch SALE BIEN.
+#
+# Apagado por defecto: esa notificacion se dispara despues de confirmar el
+# switch, cuando el mouse ya se fue y vos ya estas mirando la otra pantalla.
+# Aparece en la maquina que estas abandonando, asi que no la ve nadie.
+# Las que si sirven son las de fallo, porque en ese caso te quedas ahi.
+#
+# El dia que las dos maquinas tengan listener, lo que tiene sentido es que
+# cada una avise lo que RECIBE y no lo que manda: ahi el aviso aparece en la
+# pantalla que estas mirando. Eso todavia no esta implementado.
+on_success = false
 timeout_ms = 2000
 
 # ============================================================================

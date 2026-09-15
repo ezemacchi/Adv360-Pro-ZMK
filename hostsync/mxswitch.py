@@ -211,6 +211,20 @@ def this_host(cfg):
 # Notificaciones
 # --------------------------------------------------------------------------
 
+def notify_success(cfg, host, slot):
+    """Notificacion de switch exitoso.
+
+    Apagada por defecto, y no es pereza: se dispara DESPUES de confirmar el
+    switch, o sea cuando el mouse ya se fue y vos ya estas mirando la otra
+    pantalla. Aparece en la maquina que estas abandonando, asi que en la
+    practica no la ve nadie. Las utiles son las de fallo, porque en ese caso
+    te quedas en esa maquina.
+    """
+    if not cfg.get("notify", {}).get("on_success", False):
+        return
+    notify(cfg, "Mouse -> " + host["label"], f"slot {slot + 1}")
+
+
 def notify(cfg, title, body, urgency="normal"):
     if not cfg.get("notify", {}).get("enabled", True):
         return
@@ -456,13 +470,13 @@ def cmd_switch(cfg, host, dry_run=False):
             except DeviceGone:
                 # Se fue mientras escribiamos: eso es exito.
                 log.info("el mouse se desconecto al mandar la orden (ok)")
-                notify(cfg, "Mouse -> " + host["label"], f"slot {target + 1}")
+                notify_success(cfg, host, target)
                 return EX_OK
 
             if dev.wait_until_gone(verify_timeout):
                 log.info("switch confirmado a %s (slot %d) en el intento %d",
                          host["label"], target + 1, attempt)
-                notify(cfg, "Mouse -> " + host["label"], f"slot {target + 1}")
+                notify_success(cfg, host, target)
                 return EX_OK
 
             log.warning("intento %d: el mouse sigue conectado, la orden se "

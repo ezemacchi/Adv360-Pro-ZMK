@@ -378,6 +378,24 @@ tail -f ~/.local/state/hostsync/mxswitch.log
 Códigos de salida: 0 ok · 2 config · 3 no encontrado · 4 permisos · 5 protocolo
 · 6 orden perdida · 7 no conmutable · 8 argumentos · 9 desalineado.
 
+### Sobre las notificaciones
+
+Dos cosas que ya se decidieron y conviene no revertir sin pensarlo:
+
+- **`use_critical = false`.** Por la especificación de freedesktop,
+  `urgency=critical` significa "requiere que el usuario la reconozca" y el
+  timeout se **ignora**: la notificación se queda en pantalla hasta que la
+  cierren a mano. Verificado en KDE Plasma 6.7.4. Si volvés a poner critical en
+  los caminos de error, el usuario va a tener que cerrarlas una por una.
+- **`on_success = false`.** La notificación de éxito se dispara después de
+  confirmar el switch, cuando el mouse ya se fue y el usuario ya está mirando
+  la otra pantalla: aparece en la máquina que está abandonando. Las útiles son
+  las de fallo, porque ahí el usuario se queda en esa máquina.
+
+Lo que tendría sentido el día que se implemente: que cada máquina notifique lo
+que **recibe** y no lo que manda. Ahí el aviso aparece siempre en la pantalla
+que el usuario está mirando. Requiere listener en los dos lados, que ya existe.
+
 ### Dónde está el log
 
 `~/.local/state/hostsync/mxswitch.log`, tanto para las corridas manuales como
