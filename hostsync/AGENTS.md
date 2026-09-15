@@ -1,5 +1,13 @@
 # hostsync — notas operativas para agentes
 
+> **Si sos un agente y te pidieron trabajar sobre hostsync: leé este archivo
+> entero antes de escribir una línea.** Vale para cualquier agente, no solo
+> Claude. La mitad de lo que hay acá no se deduce del código: son cosas que
+> costaron horas de depuración contra el hardware real. En particular, si las
+> teclas testigo no llegan, saltá directo a la sección del **descriptor HID
+> cacheado** antes de sospechar del firmware o de la instalación.
+
+
 Esto **no** es una guia de instalacion. Para instalar, leé `SETUP.md`. Acá estan
 las reglas de oro, las trampas del protocolo, qué está verificado y qué no, y
 cómo diagnosticar.
