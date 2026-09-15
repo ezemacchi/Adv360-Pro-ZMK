@@ -16,8 +16,6 @@ Para que esto funcione tenes que:
   son los del autor.
 - si tu mouse **no es un MX Master 3S**, cambiar el `product_id` (y aceptar que
   el resto del protocolo esta verificado solo contra ese modelo).
-- el lado **Windows nunca se ejecuto**. Esta escrito segun la documentacion,
-  no probado. Ver `windows/INSTALL.md`.
 
 Si eso te parece demasiado, este proyecto no te sirve todavia.
 
@@ -254,14 +252,54 @@ Prueba final, sin riesgo:
 python3 hostsync/mxswitch.py --host <nombre> --dry-run
 ```
 
-## Paso 6 — Windows
+## Paso 6 — instalacion en Windows
 
-`windows/INSTALL.md` tiene el procedimiento completo (AutoHotkey v2,
-`pip install hidapi`, arranque via `shell:startup`).
+Verificado end-to-end el 2026-09-15 (switch real ida y vuelta Windows <->
+otro host, teclado y mouse volvieron los dos). `windows/INSTALL.md` tiene el
+detalle completo; esto es el camino feliz:
 
-**Esa parte nunca se ejecuto ni se probo.** Esta escrita segun la
-documentacion del protocolo. El punto de verdad es el mismo:
-`python hostsync\mxswitch.py --status`. Si eso anda, el resto es plomeria.
+```powershell
+# Python >= 3.11 (trae tomllib). Al instalar, marca "Add python.exe to PATH"
+pip install hidapi
+
+# AutoHotkey v2, no v1: la sintaxis es incompatible
+winget install --id AutoHotkey.AutoHotkey -e
+```
+
+Punto de verdad, igual que en Linux:
+
+```powershell
+python hostsync\mxswitch.py --status
+```
+
+Tiene que imprimir el transporte, el indice de `0x1814`, la cantidad de slots
+y en cual esta. Si sale codigo 3 ("no hay ningun HID ... presente"), es el
+filtro de `usage_page` de `WindowsTransport.enumerate()`: el diagnostico esta
+en `windows/INSTALL.md`. Verificado en una maquina real: el mouse expone
+`usage_page = 0xff43` sin ajustes, y el `device_index` que resuelve el codigo
+en runtime fue `0x01` (no `0xFF`; ahi el mouse aparecio como
+GATT/HID-over-Bluetooth). No hace falta tocar nada a mano en ninguno de los
+dos casos, el codigo ya lo resuelve solo.
+
+**Cerra Logi Options+ antes de probar nada** (icono de la bandeja, no alcanza
+con cerrar la ventana): hace polling de `0x1814` y pisa el cambio de slot.
+
+Arranca el listener a mano y proba una tecla testigo real desde el teclado:
+
+```powershell
+hostsync\windows\hostsync.ahk
+```
+
+Para que arranque solo: `Win+R` -> `shell:startup` -> crea ahi un acceso
+directo a ese archivo. El Programador de tareas con "ejecutar sin sesion
+iniciada" no sirve: sin sesion interactiva AutoHotkey no ve las teclas.
+
+**Trampa ya encontrada, si reescribis `hostsync.ahk`:** no nombres ninguna
+funcion `Switch`. Es palabra reservada en AutoHotkey v2 (la sentencia
+switch/case), y el script falla al cargar con `Error: Expected
+Case/Default`. El proceso queda vivo con un dialogo de error bloqueado, sin
+loguear nada, asi que parece que el testigo nunca llega en vez de un error de
+sintaxis. Ver `AGENTS.md`.
 
 ---
 

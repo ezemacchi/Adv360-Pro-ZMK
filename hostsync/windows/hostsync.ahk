@@ -10,7 +10,8 @@
 ; archivo es solo el listener: no conoce ningun numero de slot ni de perfil.
 ; El mapa esta en hosts.toml y en ningun otro lado.
 ;
-; NO VERIFICADO CONTRA HARDWARE. Ver INSTALL.md.
+; Verificado contra hardware real el 2026-09-15 (switch real ida y vuelta).
+; Ver INSTALL.md, seccion "Estado verificado".
 
 ; --- configuracion -----------------------------------------------------------
 ; Ajustar si clonaste el repo en otro lado.
@@ -28,7 +29,10 @@ global LastKey := ""
 global LastTime := 0
 DEDUP_MS := 600
 
-Switch(witness) {
+; "Switch" es palabra reservada en AHK v2 (la sentencia switch/case): nombrar
+; asi la funcion hace que el parser la lea como un bloque switch-case y falle
+; con "Expected Case/Default". Verificado en hardware el 2026-09-15.
+SwitchHost(witness) {
     global LastKey, LastTime, DEDUP_MS, HOSTSYNC_DIR, PYTHON
     now := A_TickCount
     if (witness = LastKey && now - LastTime < DEDUP_MS) {
@@ -47,9 +51,9 @@ Switch(witness) {
 
 ; --- las teclas testigo ------------------------------------------------------
 ; Se consumen aca: no se reenvian a las aplicaciones.
-F13:: Switch("f13")
-F14:: Switch("f14")
-F15:: Switch("f15")
+F13:: SwitchHost("f13")
+F14:: SwitchHost("f14")
+F15:: SwitchHost("f15")
 
 ; Salida de emergencia: Ctrl+Alt+F12 mata el listener.
 ^!F12:: ExitApp()

@@ -213,8 +213,30 @@ lo procesa `70-uaccess.rules`, así que una regla `99-` etiqueta el dispositivo
 después de que el procesador ya pasó, y el hidraw se queda `root:root 0600` sin
 ningún error visible. Esto ya nos pasó.
 
-**Lo que falta en Arch:** el firmware con las macros. Hasta que el usuario
-flashee, F13/F14/F15 no existen y el sistema entero está inerte.
+**El firmware con las macros ya está flasheado** y el switch real
+Windows↔Arch (ida y vuelta, teclado + mouse) está verificado end-to-end desde
+el 2026-09-15.
+
+---
+
+## Estado de la instalación en la máquina del autor (Windows)
+
+| | |
+|---|---|
+| Python | 3.13.15 (`tomllib` disponible), `pip install hidapi` hecho |
+| AutoHotkey | v2.0.28, instalado con `winget` |
+| `hostsync.ahk` | corriendo; acceso directo en `shell:startup` para el próximo login |
+| `--status` / `--discover` | coinciden con `hosts.toml` sin tocar nada |
+| Switch real | **verificado**: ida y vuelta Windows → Arch → Windows, teclado y mouse volvieron los dos |
+
+**Bug encontrado y corregido en `windows/hostsync.ahk`:** la función se
+llamaba `Switch(witness)`, pero `Switch` es palabra reservada en AutoHotkey v2
+(la sentencia `switch/case`). El parser la leía como un bloque switch-case y
+fallaba con `Error: Expected Case/Default` al cargar el script — silencioso en
+el sentido de que el proceso quedaba vivo con un diálogo de error bloqueado,
+sin loguear nada, así que parecía que el testigo nunca llegaba. Se renombró a
+`SwitchHost`. Si alguien reescribe `hostsync.ahk` desde cero, ojo con este
+nombre.
 
 ---
 
@@ -309,7 +331,8 @@ que no:
 | `hosts.toml` | **Sigue válido.** El mapa perfil-BT ↔ slot no cambia. |
 | Emparejamiento del mouse | **Se pierde.** Hay que re-parear en el MISMO slot que dice `hosts.toml` para esa máquina, no en cualquiera. Usá el botón Easy-Switch para elegirlo antes de parear. |
 | Emparejamiento del teclado | **Se pierde.** Re-parear en el MISMO perfil (`BT_SEL n`) que dice `hosts.toml`. Si el perfil tiene basura vieja, `Mod`+`BT_CLR` parado en él. |
-| udev, keyd, wrapper, service | Se pierden. `sudo bash hostsync/linux/install.sh` los repone. |
+| udev, keyd, wrapper, service (Linux) | Se pierden. `sudo bash hostsync/linux/install.sh` los repone. |
+| Python, `hidapi`, AutoHotkey, acceso directo en `shell:startup` (Windows) | Se pierden. `SETUP.md` paso 6 los repone; el acceso directo hay que rehacerlo a mano. |
 | Firmware del teclado | Se mantiene: vive en el teclado, no en la PC. **No hace falta reflashear.** |
 
 Después de re-parear, corré `mxswitch.py --discover` y confirmá que la máquina
@@ -329,20 +352,11 @@ mako); si no hay ninguno, el switch igual funciona, solo que sin aviso visual.
 
 Sé honesto sobre esto con el usuario:
 
-- **Todo `windows/`.** Ni una línea ejecutada. Nunca lo presentes como probado.
-  Lo primero que va a fallar ahí es `WindowsTransport.enumerate()`, que filtra
-  por `usage_page == 0xFF43`; si en Windows viene distinto, sale con código 3.
-  Diagnóstico: `python -c "import hid; print(hid.enumerate(0x046D, 0xB034))"`.
-  Y si el mouse estuviera por receptor Bolt en vez de BLE, el product id no es
-  `0xb034`.
-- **Un switch real.** Nunca se ejecutó un `setCurrentHost` — habría movido el
-  mouse del usuario a otra máquina en mitad de la sesión. La ruta de
-  confirmación por desconexión y los reintentos están escritos según el
-  protocolo, pero no ejercitados.
-- **El `wait-ms = 120`** de las macros. Es el único número a calibrar.
-- **keyd end-to-end.** El daemon corre y agarró el teclado (verificado con
-  `keyd monitor`), pero nunca recibió un F13 real porque el firmware no los
-  emite todavía.
+- **El host 3 (`windows-dualboot`).** Sigue sin bindear a propósito y sin
+  parear en el mouse. Ver "El mapa de esta máquina".
+- **El `wait-ms = 120` bajo carga adversa.** El round-trip funcionó con el
+  valor tal cual está, en Arch y en Windows, pero no se probó en condiciones
+  límite (mouse recién despertando, Bluetooth con interferencia).
 - **`install.sh` con `--user-units`** y la resolución de ruta del wrapper en una
   máquina limpia. La sintaxis está chequeada (`bash -n`); la instalación real no
   se volvió a correr para no pisar lo que ya funciona.

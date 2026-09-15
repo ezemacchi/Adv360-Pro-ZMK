@@ -4,23 +4,35 @@ El listener de Windows. Escucha las teclas testigo F13/F14/F15 del Adv360 y
 mueve el MX Master 3S al slot correspondiente antes de que el teclado salte de
 perfil.
 
-## Lo que NO esta verificado
+## Estado verificado (2026-09-15)
 
-Todo este directorio se escribio sin acceso a una maquina Windows. No se probo
-ni una linea. En concreto, queda sin verificar:
+Instalado y probado end-to-end en una maquina Windows real:
 
-- Que `hid.enumerate()` devuelva `usage_page = 0xFF43` para el MX Master 3S en
-  Windows. Es el filtro que elige la interfaz HID++ correcta; si viene distinto,
-  `WindowsTransport.enumerate()` no encuentra nada y el script sale con codigo 3.
-  **Es lo primero que hay que probar** (ver "Diagnostico" abajo).
-- Si el mouse esta por Bluetooth directo en Windows, que el device index sea
-  `0xFF` igual que en Linux. El codigo lo detecta en runtime probando `0xFF` y
-  despues `1..6`, asi que deberia resolverse solo, pero no esta confirmado.
-- Que AutoHotkey reciba F13/F14/F15 de un teclado Bluetooth sin que se las coma
-  antes otra cosa.
-- El comportamiento con Logi Options+ corriendo. Ver "Conflictos".
-- Que el `wait-ms = 120` del keymap alcance en Windows. Es el unico numero que
-  hay que calibrar y puede diferir del de Linux.
+- `hid.enumerate()` SI devuelve `usage_page = 0xFF43` para el MX Master 3S.
+  `WindowsTransport.enumerate()` lo encuentra sin ajustes.
+- El device index resuelto en runtime fue `0x01` (no `0xFF`; aca el mouse
+  aparecio como GATT/HID-over-Bluetooth, clasificado como "usb" por el
+  transporte, no como "bluetooth" via campo `BTH` del path). El codigo lo
+  resuelve solo probando el orden `1..6` seguido de `0xFF` para ese caso,
+  como esta escrito.
+- AutoHotkey SI recibe F13/F14/F15 de un teclado Bluetooth sin que otra cosa
+  se las coma antes.
+- Switch real, ida y vuelta Windows -> Arch -> Windows: teclado y mouse
+  volvieron los dos.
+- **Bug encontrado y corregido:** `windows/hostsync.ahk` nombraba a su funcion
+  `Switch`, que es palabra reservada en AutoHotkey v2 (la sentencia
+  switch/case). El script fallaba al cargar con `Error: Expected
+  Case/Default`, sin loguear nada — parecia que el testigo nunca llegaba.
+  Renombrada a `SwitchHost`.
+
+## Lo que sigue sin verificar
+
+- El comportamiento con Logi Options+ corriendo. Ver "Conflictos" (no se probo
+  a proposito: se cerro antes de instalar).
+- Que el `wait-ms = 120` del keymap alcance bajo condiciones adversas (mouse
+  en suspension profunda, Bluetooth con interferencia). El round-trip funciono
+  con el valor tal cual esta.
+- El host 3 (`windows-dualboot`): sigue sin bindear a proposito.
 
 ## Requisitos
 
@@ -32,7 +44,10 @@ ni una linea. En concreto, queda sin verificar:
    ```
    En Windows el backend de hidapi es nativo, no necesita drivers extra.
 3. **AutoHotkey v2** (no v1, la sintaxis es incompatible):
-   https://www.autohotkey.com/
+   https://www.autohotkey.com/, o por linea de comandos:
+   ```
+   winget install --id AutoHotkey.AutoHotkey -e
+   ```
 
 ## Instalacion
 
@@ -51,10 +66,14 @@ ni una linea. En concreto, queda sin verificar:
    python hostsync\mxswitch.py --host arch --dry-run
    ```
 
-4. Arranca el listener a mano y proba las teclas:
+4. **Cerra Logi Options+ desde el icono de la bandeja** (no alcanza con la
+   ventana, ver "Conflictos" abajo), y arranca el listener a mano:
    ```
    hostsync\windows\hostsync.ahk
    ```
+   Sin dialogo de error ni ventana significa que cargo bien (no tiene UI:
+   corre en background). Apreta una tecla testigo real desde el teclado y
+   revisa el log (ver "Diagnostico") para confirmar que llego.
 
 5. Para que arranque solo: `Win+R` -> `shell:startup` -> crea ahi un acceso
    directo a `hostsync.ahk`.
