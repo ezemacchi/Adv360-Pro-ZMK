@@ -214,7 +214,15 @@ def this_host(cfg):
 def notify(cfg, title, body, urgency="normal"):
     if not cfg.get("notify", {}).get("enabled", True):
         return
-    timeout = str(cfg.get("notify", {}).get("timeout_ms", 2000))
+    ncfg = cfg.get("notify", {})
+    timeout = str(ncfg.get("timeout_ms", 2000))
+    # Por la especificacion de freedesktop, urgency=critical significa "requiere
+    # que el usuario la reconozca": el timeout se IGNORA y la notificacion se
+    # queda hasta que la cierren a mano. KDE lo implementa al pie de la letra.
+    # Verificado en Plasma 6.7.4: la normal se va sola, la critical no.
+    # Por defecto no usamos critical para que todo respete timeout_ms.
+    if urgency == "critical" and not ncfg.get("use_critical", False):
+        urgency = "normal"
     if sys.platform.startswith("win"):
         return
     try:

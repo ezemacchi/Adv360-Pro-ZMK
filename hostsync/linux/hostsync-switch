@@ -62,4 +62,10 @@ if [ "$(id -u)" -eq 0 ]; then
     [ -n "$HOSTSYNC_USER" ] && export HOSTSYNC_USER
 fi
 
+# keyd nos corre como ROOT desde el directorio del repo. Sin esto, Python deja
+# un __pycache__/ de propiedad de root en el arbol de trabajo del usuario, que
+# despues le bloquea a el escribir bytecode ahi. Arrancar sin cache cuesta
+# milisegundos y evita el problema.
+export PYTHONDONTWRITEBYTECODE=1
+
 exec python3 "$HOSTSYNC_DIR/mxswitch.py" --witness "$1"

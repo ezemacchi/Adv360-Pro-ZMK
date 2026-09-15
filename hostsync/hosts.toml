@@ -52,6 +52,18 @@ dedup_window_ms = 600
 enabled = true
 timeout_ms = 2000
 
+# Las notificaciones de ERROR (switch bloqueado, mouse no encontrado, orden
+# perdida, keymap desalineado) en urgencia critical.
+#
+# Ojo con esto: por la especificacion de freedesktop, critical significa
+# "requiere que el usuario la reconozca", asi que timeout_ms se IGNORA y la
+# notificacion se queda en pantalla hasta que la cierres a mano. KDE Plasma lo
+# implementa literal (verificado en 6.7.4). Otros daemons tambien.
+#
+# En false (el default) todo usa urgencia normal y desaparece solo.
+# Poné true si preferís que un fallo real te frene y no se te escape de vista.
+use_critical = false
+
 # ============================================================================
 # EL MAPA. Perfil BT del teclado <-> slot del mouse <-> tecla testigo.
 #
