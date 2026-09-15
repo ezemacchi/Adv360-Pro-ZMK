@@ -184,7 +184,7 @@ se haya revertido.
 
 ---
 
-## Estado de la instalación en esta máquina (Arch / CachyOS)
+## Estado de la instalación en la máquina del autor (Arch / CachyOS)
 
 | | |
 |---|---|
@@ -207,6 +207,113 @@ ningún error visible. Esto ya nos pasó.
 
 **Lo que falta en Arch:** el firmware con las macros. Hasta que el usuario
 flashee, F13/F14/F15 no existen y el sistema entero está inerte.
+
+---
+
+## EL problema que más tiempo cuesta: el descriptor HID cacheado
+
+**Si las teclas testigo no llegan pero el teclado tipea normal, es esto.**
+Nos costó la mitad de una sesión. Leelo antes de sospechar de cualquier otra
+cosa.
+
+### El síntoma
+
+- En Linux: todo anda, pero `mxswitch.log` no registra NADA al apretar la
+  macro. `keyd monitor` no muestra ningún `f13`/`f14`/`f15`.
+- En Windows: el teclado conecta pero **no tipea nada**.
+
+### La causa
+
+`CONFIG_ZMK_HID_KEYBOARD_EXTENDED_REPORT=y` **cambia el report descriptor** del
+teclado. Pero los hosts Bluetooth **cachean el report map de cada dispositivo
+emparejado** y no lo vuelven a pedir en cada conexión. Flasheás, el firmware
+nuevo corre bien, y el host sigue usando el descriptor viejo.
+
+Con el descriptor viejo el rango de usages del teclado termina en `0x67` (103).
+**F13 es `0x68`** (104). Se queda exactamente un código corto: todas las teclas
+normales andan y las tres testigo no existen.
+
+### El diagnóstico
+
+```sh
+cd /sys/class/hidraw
+for n in hidraw*; do grep -q "1D50" $n/device/uevent 2>/dev/null && \
+  python3 - "$n/device/report_descriptor" <<'EOF'
+import sys
+d=open(sys.argv[1],'rb').read(); i=0; page=None
+while i < len(d):
+    b=d[i]; size=b&3; size=4 if size==3 else size; tag=b&0xFC
+    val=int.from_bytes(d[i+1:i+1+size],'little') if size else 0
+    if tag==0x04: page=val
+    if page==0x07 and tag==0x28: print(f"Usage Max = 0x{val:02x}")
+    i += 1+size
+EOF
+done
+```
+
+Imprime **dos** líneas. Ignorá la que dice `0xe7`: esos son los modificadores
+(Ctrl, Shift, etc.) y siempre valen lo mismo. La que importa es la otra:
+
+- `Usage Max = 0x67` → descriptor viejo, **es este problema**.
+- `Usage Max = 0x97` → descriptor nuevo, F13-F15 disponibles, buscá en otro lado.
+
+Verificado: este es exactamente el salto que se observó al arreglarlo.
+
+### El arreglo en Linux
+
+BlueZ guarda el report map en un caché **separado del bonding**, así que se
+puede tirar sin desemparejar:
+
+```sh
+sudo rm -f /var/lib/bluetooth/<ADAPTADOR>/cache/<MAC-DEL-TECLADO>
+sudo systemctl restart bluetooth
+```
+
+El bonding vive en `/var/lib/bluetooth/<ADAPTADOR>/<MAC>/info` y NO hay que
+tocarlo — confirmá que sigue ahí antes de reiniciar. El teclado y el mouse se
+desconectan unos segundos y vuelven solos. Verificá con el diagnóstico de
+arriba que ahora diga `0x97`.
+
+### El arreglo en Windows
+
+Ahí no alcanza con borrar un archivo: **quitar el dispositivo y re-parear.**
+
+1. Configuración → Bluetooth → el Adv360 → Quitar dispositivo.
+2. En el teclado, parado en el perfil de esa máquina, `Mod`+`BT_CLR` (borra el
+   bonding solo de ese perfil, los otros no se tocan).
+3. Parear de nuevo desde Windows.
+
+### La regla general
+
+**Cada vez que cambie el report descriptor del teclado, hay que refrescar el
+emparejamiento en CADA host.** No es un flasheo mal hecho: el firmware está
+bien, el host está desactualizado. No reflashees buscando arreglarlo.
+
+---
+
+## Reinstalación del sistema operativo
+
+Si el usuario reinstala (por ejemplo CachyOS -> Omarchy), lo que sobrevive y lo
+que no:
+
+| | |
+|---|---|
+| `hosts.toml` | **Sigue válido.** El mapa perfil-BT ↔ slot no cambia. |
+| Emparejamiento del mouse | **Se pierde.** Hay que re-parear en el MISMO slot que dice `hosts.toml` para esa máquina, no en cualquiera. Usá el botón Easy-Switch para elegirlo antes de parear. |
+| Emparejamiento del teclado | **Se pierde.** Re-parear en el MISMO perfil (`BT_SEL n`) que dice `hosts.toml`. Si el perfil tiene basura vieja, `Mod`+`BT_CLR` parado en él. |
+| udev, keyd, wrapper, service | Se pierden. `sudo bash hostsync/linux/install.sh` los repone. |
+| Firmware del teclado | Se mantiene: vive en el teclado, no en la PC. **No hace falta reflashear.** |
+
+Después de re-parear, corré `mxswitch.py --discover` y confirmá que la máquina
+quedó en el slot que `hosts.toml` espera. Si quedó en otro, o corregís el
+emparejamiento o actualizás `hosts.toml` — pero que coincidan.
+
+**Sobre Hyprland / Omarchy:** no hay nada que adaptar. keyd trabaja sobre evdev,
+por debajo de X11 y de Wayland, y fue elegido exactamente por eso: el cambio de
+compositor le es indiferente. `hostsync-verify.service` cuelga de
+`graphical-session.target`, que Hyprland también provee. Lo único a verificar es
+que `notify-send` tenga un daemon de notificaciones corriendo (Omarchy trae
+mako); si no hay ninguno, el switch igual funciona, solo que sin aviso visual.
 
 ---
 
@@ -248,6 +355,20 @@ tail -f ~/.local/state/hostsync/mxswitch.log
 
 Códigos de salida: 0 ok · 2 config · 3 no encontrado · 4 permisos · 5 protocolo
 · 6 orden perdida · 7 no conmutable · 8 argumentos · 9 desalineado.
+
+### Dónde está el log
+
+`~/.local/state/hostsync/mxswitch.log`, tanto para las corridas manuales como
+para las que dispara keyd.
+
+Ojo con esto: keyd ejecuta el wrapper **como root**. Si te guiás por `HOME`,
+los switches reales van a `/root/.local/state/` y las corridas manuales a la
+del usuario — dos logs distintos, y el que mires nunca tiene lo que buscás.
+Ya nos pasó y nos hizo creer que el sistema no se disparaba cuando sí lo hacía.
+Está resuelto: el wrapper exporta `HOSTSYNC_USER` y `setup_logging()` escribe
+siempre en el directorio de ese usuario, ajustando dueño y permisos. Si alguna
+vez el log parece vacío, verificá que no haya quedado un
+`/root/.local/state/hostsync/mxswitch.log` acumulando las entradas.
 
 ### Cómo distinguir las dos fallas que se confunden
 

@@ -314,6 +314,23 @@ Si quedas sin perifericos en la maquina equivocada:
 - **Mouse**: boton Easy-Switch abajo, elegi el slot a mano.
 - **Teclado**: `BT_SEL n` en la fila 1 de la capa Mod.
 
+## Si las teclas testigo no llegan
+
+Sintoma: el teclado tipea normal, cambia de perfil, pero el log no registra
+nada al apretar la macro y el mouse no se mueve.
+
+**Casi siempre es el descriptor HID cacheado por el host**, no un problema del
+firmware ni de la instalacion. Pasa cada vez que cambia
+`CONFIG_ZMK_HID_KEYBOARD_EXTENDED_REPORT`, porque eso altera el report
+descriptor y los hosts Bluetooth lo tienen memorizado del emparejamiento
+anterior.
+
+El diagnostico y el arreglo, para Linux y para Windows, estan en
+[`AGENTS.md`](AGENTS.md), seccion "EL problema que mas tiempo cuesta".
+
+No reflashees buscando arreglarlo: el firmware esta bien, el host esta
+desactualizado.
+
 ## Codigos de salida
 
 `0` ok · `2` config · `3` mouse no encontrado · `4` permisos · `5` protocolo ·
